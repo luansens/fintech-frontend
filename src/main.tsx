@@ -6,6 +6,7 @@ import { AccountsPage } from "./accounts/AccountsPage";
 import { LoginPage } from "./auth/LoginPage";
 import { HomePage } from "./home/HomePage";
 import "./index.css";
+import { SignupPage } from "./sign-up/SignUpPage";
 import { UserDetailsPage } from "./users/UserDetailsPage";
 import { UsersPage } from "./users/UsersPage";
 
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")!).render(
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/sign-up" element={<SignupPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/users/:id" element={<UserDetailsPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
