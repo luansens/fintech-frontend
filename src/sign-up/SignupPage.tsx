@@ -1,17 +1,43 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { z } from "zod";
+import type { LoginResponseSchema } from "../auth/AuthSchemas";
+import { useAuthStore } from "../auth/authStore";
+import { investorLevelEnum, type UserSchema } from "../users/UserSchemas";
 
 type SignUpFormValues = {
-  fullName: string;
+  name: string;
+  document: string;
   birthDate: string;
-  phone: string;
+  phoneNumber: string;
   email: string;
   password: string;
   confirmPassword: string;
-  investorProfile: "conservador" | "moderado" | "arrojado";
-  accountType: "pessoa_fisica" | "pessoa_juridica";
+  investorLevel: "iniciante" | "moderado" | "avancado" | "profissional";
 };
+
+const signUpFormSchema = z
+  .object({
+    name: z.string().min(3, "Nome deve ter ao menos 3 caracteres"),
+    birthDate: z.string().min(1, "Data de nascimento obrigatória"),
+    document: z.string().min(1, "Documento obrigatório"),
+    phoneNumber: z
+      .string()
+      .regex(/^\(\d{2}\) \d{5}-\d{4}$/, "Formato: (99) 99999-9999"),
+    email: z.email("Formato de e-mail inválido"),
+    password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
+    confirmPassword: z.string(),
+    investorLevel: investorLevelEnum,
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"],
+  });
+
+type SignUpFormSchema = z.infer<typeof signUpFormSchema>;
 
 export function SignupPage() {
   const {
@@ -19,28 +45,85 @@ export function SignupPage() {
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<SignUpFormValues>({
+  } = useForm<SignUpFormSchema>({
+    resolver: zodResolver(signUpFormSchema),
     defaultValues: {
-      fullName: "",
+      name: "",
+      document: "",
       birthDate: "",
-      phone: "",
+      phoneNumber: "",
       email: "",
       password: "",
       confirmPassword: "",
-      investorProfile: "conservador",
-      accountType: "pessoa_fisica",
+      investorLevel: "iniciante",
     },
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { setAuth } = useAuthStore((st) => ({
+    setAuth: st.setAuth,
+  }));
 
   const password = watch("password");
+  const navigate = useNavigate();
+
+  const { mutate: login } = useMutation({
+    mutationFn: async (data: {
+      email: string;
+      password: string;
+      userInfo: UserSchema;
+    }) => {
+      const response = await fetch("/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao fazer login");
+      }
+
+      return response.json() as Promise<LoginResponseSchema>;
+    },
+    onSuccess: (data) => {
+      setAuth(data.token, data.user);
+      navigate("/access-account");
+    },
+  });
+
+  const { mutate: signUp } = useMutation({
+    mutationFn: async (data: SignUpFormValues) => {
+      const response = await fetch("/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao criar conta");
+      }
+
+      return response.json() as Promise<UserSchema>;
+    },
+    onSuccess: (data, formValues) => {
+      login({
+        email: formValues.email,
+        password: formValues.password,
+        userInfo: data,
+      });
+    },
+  });
 
   const onSubmit = async (data: SignUpFormValues) => {
-    // Simula chamada de cadastro; substitua pela integração real
-    await new Promise((r) => setTimeout(r, 800));
-    console.log("Cadastro:", data);
+    signUp(data);
   };
 
   return (
@@ -68,7 +151,7 @@ export function SignupPage() {
               </label>
               <input
                 type="text"
-                {...register("fullName", {
+                {...register("name", {
                   required: "Nome completo obrigatório",
                   minLength: {
                     value: 3,
@@ -76,15 +159,15 @@ export function SignupPage() {
                   },
                 })}
                 className={`mt-2 w-full px-4 py-2 rounded-lg border ${
-                  errors.fullName
+                  errors.name
                     ? "border-red-400 focus:ring-red-300"
                     : "border-gray-200 focus:ring-indigo-300"
                 } bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none`}
                 placeholder="João da Silva"
               />
-              {errors.fullName && (
+              {errors.name && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.fullName.message}
+                  {errors.name.message}
                 </p>
               )}
             </div>
@@ -117,7 +200,7 @@ export function SignupPage() {
               </label>
               <input
                 type="tel"
-                {...register("phone", {
+                {...register("phoneNumber", {
                   required: "Telefone obrigatório",
                   pattern: {
                     value: /^\(\d{2}\) \d{5}-\d{4}$/,
@@ -125,15 +208,15 @@ export function SignupPage() {
                   },
                 })}
                 className={`mt-2 w-full px-4 py-2 rounded-lg border ${
-                  errors.phone
+                  errors.phoneNumber
                     ? "border-red-400 focus:ring-red-300"
                     : "border-gray-200 focus:ring-indigo-300"
                 } bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none`}
                 placeholder="(99) 99999-9999"
               />
-              {errors.phone && (
+              {errors.phoneNumber && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.phone.message}
+                  {errors.phoneNumber.message}
                 </p>
               )}
             </div>
@@ -161,6 +244,29 @@ export function SignupPage() {
               {errors.email && (
                 <p className="mt-1 text-sm text-red-500">
                   {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Documento
+              </label>
+              <input
+                type="text"
+                {...register("document", {
+                  required: "Documento obrigatório",
+                })}
+                className={`mt-2 w-full px-4 py-2 rounded-lg border ${
+                  errors.document
+                    ? "border-red-400 focus:ring-red-300"
+                    : "border-gray-200 focus:ring-indigo-300"
+                } bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none`}
+                placeholder="Número do documento"
+              />
+              {errors.document && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.document.message}
                 </p>
               )}
             </div>
@@ -240,38 +346,19 @@ export function SignupPage() {
                 Perfil de investidor
               </label>
               <select
-                {...register("investorProfile", {
+                {...register("investorLevel", {
                   required: "Perfil de investidor obrigatório",
                 })}
                 className="mt-2 w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-indigo-300"
               >
-                <option value="conservador">Conservador</option>
+                <option value="iniciante">Iniciante</option>
                 <option value="moderado">Moderado</option>
-                <option value="arrojado">Arrojado</option>
+                <option value="avancado">Avançado</option>
+                <option value="profissional">Profissional</option>
               </select>
-              {errors.investorProfile && (
+              {errors.investorLevel && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.investorProfile.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                Tipo de conta
-              </label>
-              <select
-                {...register("accountType", {
-                  required: "Tipo de conta obrigatório",
-                })}
-                className="mt-2 w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-indigo-300"
-              >
-                <option value="pessoa_fisica">Pessoa Física</option>
-                <option value="pessoa_juridica">Pessoa Jurídica</option>
-              </select>
-              {errors.accountType && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.accountType.message}
+                  {errors.investorLevel.message}
                 </p>
               )}
             </div>
