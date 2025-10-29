@@ -24,9 +24,7 @@ const signUpFormSchema = z
     name: z.string().min(3, "Nome deve ter ao menos 3 caracteres"),
     birthDate: z.string().min(1, "Data de nascimento obrigatória"),
     document: z.string().min(1, "Documento obrigatório"),
-    phoneNumber: z
-      .string()
-      .regex(/^\(\d{2}\) \d{5}-\d{4}$/, "Formato: (99) 99999-9999"),
+    phoneNumber: z.string().min(1, "Telefone obrigatório"),
     email: z.email("Formato de e-mail inválido"),
     password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
     confirmPassword: z.string(),
@@ -44,7 +42,7 @@ export function SignupPage() {
     register,
     handleSubmit,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<SignUpFormSchema>({
     resolver: zodResolver(signUpFormSchema),
     defaultValues: {
@@ -61,20 +59,18 @@ export function SignupPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { setAuth } = useAuthStore((st) => ({
-    setAuth: st.setAuth,
-  }));
+  const setAuth = useAuthStore((st) => st.setAuth);
 
   const password = watch("password");
   const navigate = useNavigate();
 
-  const { mutate: login } = useMutation({
+  const { mutate: login, isPending: loginIsPending } = useMutation({
     mutationFn: async (data: {
       email: string;
       password: string;
       userInfo: UserSchema;
     }) => {
-      const response = await fetch("/auth/login", {
+      const response = await fetch("http://localhost:8080/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,9 +93,9 @@ export function SignupPage() {
     },
   });
 
-  const { mutate: signUp } = useMutation({
+  const { mutate: signUp, isPending: signUpIsPending } = useMutation({
     mutationFn: async (data: SignUpFormValues) => {
-      const response = await fetch("/auth/register", {
+      const response = await fetch("http://localhost:8080/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -366,36 +362,39 @@ export function SignupPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={signUpIsPending || loginIsPending}
             className={`w-full py-2.5 rounded-lg text-white font-medium transition ${
-              isSubmitting
+              signUpIsPending || loginIsPending
                 ? "bg-indigo-400 cursor-not-allowed"
                 : "bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
             } flex items-center justify-center gap-2`}
           >
-            {isSubmitting && (
-              <svg
-                className="w-5 h-5 animate-spin text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-            )}
-            {isSubmitting ? "Criando conta..." : "Criar conta"}
+            {signUpIsPending ||
+              (loginIsPending && (
+                <svg
+                  className="w-5 h-5 animate-spin text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+              ))}
+            {signUpIsPending || loginIsPending
+              ? "Criando conta..."
+              : "Criar conta"}
           </button>
         </form>
 

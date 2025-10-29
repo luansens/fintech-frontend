@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AccountSchema } from "../accounts/AccountSchemas";
 import type { UserSchema } from "../users/UserSchemas";
 
 interface AuthState {
@@ -7,6 +8,8 @@ interface AuthState {
   token: string | null;
   userInfo: UserSchema | null;
   setAuth: (token: string, userInfo: UserSchema) => void;
+  userAccounts: AccountSchema[];
+  setUserAccounts: (accounts: AccountSchema[]) => void;
   clearAuth: () => void;
 }
 
@@ -28,6 +31,8 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           userInfo: null,
         }),
+      setUserAccounts: (accounts) => set({ userAccounts: accounts }),
+      userAccounts: [],
     }),
     {
       name: "auth-storage", // name of the item in localStorage

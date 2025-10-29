@@ -4,3 +4,5 @@ export const accountSchema = z.object({
   account_id: z.string(),
   account_name: z.string(),
 });
+
+export type AccountSchema = z.infer<typeof accountSchema>;
