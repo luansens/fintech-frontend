@@ -16,7 +16,7 @@ type SignUpFormValues = {
   email: string;
   password: string;
   confirmPassword: string;
-  investorLevel: "iniciante" | "moderado" | "avancado" | "profissional";
+  investorLevel: "INICIANTE" | "MODERADO" | "AVANCADO" | "PROFISSIONAL";
 };
 
 const signUpFormSchema = z
@@ -53,7 +53,7 @@ export function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
-      investorLevel: "iniciante",
+      investorLevel: "INICIANTE",
     },
   });
 
@@ -347,10 +347,10 @@ export function SignupPage() {
                 })}
                 className="mt-2 w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-indigo-300"
               >
-                <option value="iniciante">Iniciante</option>
-                <option value="moderado">Moderado</option>
-                <option value="avancado">Avançado</option>
-                <option value="profissional">Profissional</option>
+                <option value="INICIANTE">Iniciante</option>
+                <option value="MODERADO">Moderado</option>
+                <option value="AVANCADO">Avançado</option>
+                <option value="PROFISSIONAL">Profissional</option>
               </select>
               {errors.investorLevel && (
                 <p className="mt-1 text-sm text-red-500">

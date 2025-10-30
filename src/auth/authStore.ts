@@ -10,6 +10,8 @@ interface AuthState {
   setAuth: (token: string, userInfo: UserSchema) => void;
   userAccounts: AccountSchema[];
   setUserAccounts: (accounts: AccountSchema[]) => void;
+  currentAccount: AccountSchema | null;
+  setCurrentAccount: (account: AccountSchema | null) => void;
   clearAuth: () => void;
 }
 
@@ -33,6 +35,8 @@ export const useAuthStore = create<AuthState>()(
         }),
       setUserAccounts: (accounts) => set({ userAccounts: accounts }),
       userAccounts: [],
+      currentAccount: null,
+      setCurrentAccount: (account) => set({ currentAccount: account }),
     }),
     {
       name: "auth-storage", // name of the item in localStorage

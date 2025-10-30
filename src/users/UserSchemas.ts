@@ -1,10 +1,10 @@
 import z from "zod";
 
 export const investorLevelEnum = z.enum([
-  "iniciante",
-  "moderado",
-  "avancado",
-  "profissional",
+  "INICIANTE",
+  "MODERADO",
+  "AVANCADO",
+  "PROFISSIONAL",
 ]);
 
 export const userSchema = z.object({

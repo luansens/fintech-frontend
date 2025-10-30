@@ -1,6 +1,9 @@
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import type { LoginResponseSchema } from "./AuthSchemas";
+import { useAuthStore } from "./authStore";
 
 type LoginFormValues = {
   email: string;
@@ -12,17 +15,45 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<LoginFormValues>({
     defaultValues: { email: "", password: "", remember: false },
   });
 
   const [showPassword, setShowPassword] = useState(false);
 
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const setUserAccounts = useAuthStore((state) => state.setUserAccounts);
+  const navigate = useNavigate();
+
+  const { mutate: login, isPending: loginIsPending } = useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const response = await fetch("http://localhost:8080/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao fazer login");
+      }
+
+      return response.json() as Promise<LoginResponseSchema>;
+    },
+    onSuccess: (data) => {
+      setAuth(data.token, data.user);
+      setUserAccounts(data.accounts);
+      navigate("/access-account");
+    },
+  });
+
   const onSubmit = async (data: LoginFormValues) => {
-    // Simula chamada de login; substitua pela integração real
-    await new Promise((r) => setTimeout(r, 800));
-    console.log("Login:", data);
+    login(data);
   };
 
   return (
@@ -121,14 +152,14 @@ export function LoginPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={loginIsPending}
             className={`w-full py-2.5 rounded-lg text-white font-medium transition ${
-              isSubmitting
+              loginIsPending
                 ? "bg-indigo-400 cursor-not-allowed"
                 : "bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
             } flex items-center justify-center gap-2`}
           >
-            {isSubmitting && (
+            {loginIsPending && (
               <svg
                 className="w-5 h-5 animate-spin text-white"
                 xmlns="http://www.w3.org/2000/svg"
@@ -150,7 +181,7 @@ export function LoginPage() {
                 />
               </svg>
             )}
-            {isSubmitting ? "Entrando..." : "Entrar"}
+            {loginIsPending ? "Entrando..." : "Entrar"}
           </button>
         </form>
 
