@@ -1,7 +1,17 @@
 import { Dialog, Transition } from "@headlessui/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { useAuthStore } from "../auth/authStore";
+
+interface Asset {
+  content: {
+    id: string;
+    name: string;
+    symbol: string;
+    asset_type: string;
+    current_price: number;
+  }[];
+}
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -11,9 +21,32 @@ interface TransferModalProps {
 
 export function TransferModal({ isOpen, onClose, type }: TransferModalProps) {
   const [amount, setAmount] = useState(0);
+  const [selectedAsset, setSelectedAsset] = useState<string>("");
   const token = useAuthStore((state) => state.token);
   const currentAccount = useAuthStore((state) => state.currentAccount);
   const queryClient = useQueryClient();
+
+  const { data: assets, isLoading: assetsLoading } = useQuery({
+    queryKey: ["assets"],
+    queryFn: async () => {
+      if (!token) throw new Error("Unauthorized");
+
+      const response = await fetch("http://localhost:8080/assets", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch assets");
+      }
+
+      return response.json() as Promise<Asset>;
+    },
+    enabled: type === "invest" && isOpen,
+  });
+
+  const [recipientAccount, setRecipientAccount] = useState("");
 
   const { mutate: performTransaction, isPending: loading } = useMutation({
     mutationFn: async () => {
@@ -21,20 +54,33 @@ export function TransferModal({ isOpen, onClose, type }: TransferModalProps) {
         throw new Error("Unauthorized");
       }
 
-      const response = await fetch(
-        `http://localhost:8080/accounts/${currentAccount.id}/wallet/transactions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            amount,
-            type,
-          }),
-        }
-      );
+      const endpoint =
+        type === "invest"
+          ? `http://localhost:8080/accounts/${currentAccount.id}/investments`
+          : `http://localhost:8080/accounts/${currentAccount.id}/wallet/transactions`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(
+          type === "invest"
+            ? {
+                amount,
+                asset_name: assets?.content.find((x) => x.id === selectedAsset)
+                  ?.name,
+                purchase_price: assets?.content.find(
+                  (x) => x.id === selectedAsset
+                )?.current_price,
+              }
+            : {
+                amount,
+                type,
+              }
+        ),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to process transaction");
@@ -46,6 +92,11 @@ export function TransferModal({ isOpen, onClose, type }: TransferModalProps) {
       queryClient.invalidateQueries({
         queryKey: ["wallet"],
       });
+      if (type === "investments") {
+        queryClient.invalidateQueries({
+          queryKey: ["investments"],
+        });
+      }
       onClose();
     },
   });
@@ -90,10 +141,54 @@ export function TransferModal({ isOpen, onClose, type }: TransferModalProps) {
                     ? "Nova transferência"
                     : type === "pay"
                     ? "Novo pagamento"
+                    : type === "invest"
+                    ? "Novo investimento"
+                    : type === "withdraw"
+                    ? "Novo saque"
                     : "Novo depósito"}
                 </Dialog.Title>
 
                 <form onSubmit={handleSubmit}>
+                  {type === "invest" && (
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Ativo
+                      </label>
+                      {assetsLoading ? (
+                        <div className="animate-pulse h-10 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                      ) : (
+                        <select
+                          value={selectedAsset}
+                          onChange={(e) => setSelectedAsset(e.target.value)}
+                          required
+                          className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                        >
+                          <option value="">Selecione um ativo</option>
+                          {assets?.content.map((asset) => (
+                            <option key={asset.id} value={asset.id}>
+                              {asset.name} - {asset.asset_type} - R${" "}
+                              {asset.current_price.toFixed(2)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                  {type === "transfer" && (
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Conta de destino
+                      </label>
+                      <input
+                        type="text"
+                        value={recipientAccount}
+                        onChange={(e) => setRecipientAccount(e.target.value)}
+                        required
+                        placeholder="Digite o ID da conta de destino"
+                        className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  )}
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Valor
