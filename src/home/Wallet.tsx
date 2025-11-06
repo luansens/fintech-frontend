@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "../auth/authStore";
-import type { WalletSchema } from "./schemas";
+import type { InvestmentSchema, WalletSchema } from "./schemas";
 import { TransferModal } from "./TransferModal";
 
 const quickActions = [
@@ -56,7 +56,7 @@ export function Wallet() {
     }).format(value);
   };
 
-  const { data: walletData, isLoading } = useQuery({
+  const { data: walletData, isLoading: isLoadingWallet } = useQuery({
     queryKey: ["wallet"],
     queryFn: async () => {
       const response = await fetch(
@@ -78,7 +78,40 @@ export function Wallet() {
     },
   });
 
-  if (isLoading) {
+  const { data: investments, isLoading: isLoadingInvestments } = useQuery({
+    queryKey: ["investments"],
+    queryFn: async () => {
+      const response = await fetch(
+        `http://localhost:8080/accounts/${currentAccount.id}/investments`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Erro ao criar conta");
+      }
+
+      return response.json() as Promise<{ content: InvestmentSchema[] }>;
+    },
+  });
+
+  const amountOfInvestments = useMemo(() => {
+    return (
+      investments?.content?.reduce(
+        (acc, investment) => acc + investment.amount,
+        0
+      ) ?? 0
+    );
+  }, [investments?.content]);
+
+  console.log(amountOfInvestments);
+
+  if (isLoadingWallet || isLoadingInvestments) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
         <div className="animate-pulse space-y-4">
@@ -109,7 +142,9 @@ export function Wallet() {
           <div className="flex items-center gap-2 mt-1">
             <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {showBalance
-                ? formatCurrency(walletData?.balance ?? 0)
+                ? formatCurrency(
+                    (walletData?.balance ?? 0) - amountOfInvestments
+                  )
                 : "R$ ••••••"}
             </span>
             <button
@@ -142,7 +177,7 @@ export function Wallet() {
           </div>
         </div>
         <button
-          onClick={() => navigate("/accounts")}
+          onClick={() => navigate("/access-account")}
           className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
         >
           Ver todas as contas

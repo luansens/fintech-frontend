@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useAuthStore } from "../auth/authStore";
-import type { WalletSchema } from "./schemas";
+import type {
+  InvestmentSchema,
+  TransactionSchema,
+  WalletSchema,
+} from "./schemas";
 
 export function LastTransactions() {
   const token = useAuthStore((st) => st.token);
@@ -22,7 +27,7 @@ export function LastTransactions() {
     }).format(new Date(dateString));
   };
 
-  const { data: walletData, isLoading } = useQuery({
+  const { data: walletData, isLoading: isLoadingWallet } = useQuery({
     queryKey: ["wallet"],
     queryFn: async () => {
       const response = await fetch(
@@ -44,7 +49,47 @@ export function LastTransactions() {
     },
   });
 
-  if (isLoading) {
+  const { data: investments, isLoading: isLoadingInvestments } = useQuery({
+    queryKey: ["investments"],
+    queryFn: async () => {
+      const response = await fetch(
+        `http://localhost:8080/accounts/${currentAccount.id}/investments`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Erro ao criar conta");
+      }
+
+      return response.json() as Promise<{ content: InvestmentSchema[] }>;
+    },
+  });
+
+  const mergedOperations = useMemo(() => {
+    return [
+      ...(walletData?.operations ?? []),
+      ...(investments?.content?.map(
+        (x) =>
+          ({
+            amount: x.amount,
+            created_at: x.created_at,
+            operation_id: x.investment_id,
+            type: "deposit",
+          } as TransactionSchema)
+      ) ?? []),
+    ].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [investments?.content, walletData?.operations]);
+
+  if (isLoadingWallet || isLoadingInvestments) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
         <div className="animate-pulse space-y-4">
@@ -80,7 +125,7 @@ export function LastTransactions() {
       </div>
 
       <div className="space-y-4">
-        {walletData?.operations.map((transaction) => (
+        {mergedOperations.map((transaction) => (
           <div
             key={transaction.operation_id}
             className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-0"

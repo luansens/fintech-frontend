@@ -17,3 +17,13 @@ export const walletSchema = z.object({
 });
 
 export type WalletSchema = z.infer<typeof walletSchema>;
+
+export const investmentSchema = z.object({
+  amount: z.number(),
+  investment_id: z.guid(),
+  asset_name: z.string(),
+  asset_type: z.string(),
+  created_at: z.date(),
+});
+
+export type InvestmentSchema = z.infer<typeof investmentSchema>;
